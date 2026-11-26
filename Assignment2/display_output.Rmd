@@ -1,0 +1,72 @@
+---
+title: "Technical Analysis: Data and Statistics Display"
+author: "Tushar Midha"
+output: html_document
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+source("stock_functions.R")
+library(knitr)
+```
+
+# Load the portfolio
+
+```{r load, message=FALSE, warning=FALSE}
+stocks <- load_stock_data("portfolio.txt")
+names(stocks)
+```
+
+# Display each stock
+
+```{r display, results='asis'}
+# Custom display utility: header, first and last rows, summary
+display_stock <- function(sym, df) {
+  cat("\n\n## ", sym, "\n\n", sep = "")
+  cat("**Rows:** ", nrow(df), " | **From:** ", format(min(df$Date)),
+      " | **To:** ", format(max(df$Date)), "\n\n", sep = "")
+  print(kable(head(df, 5), digits = 2, caption = paste(sym, "first 5 rows")))
+  cat("\n\n")
+  print(kable(tail(df, 5), digits = 2, caption = paste(sym, "last 5 rows")))
+  cat("\n\n")
+}
+for (sym in names(stocks)) display_stock(sym, stocks[[sym]])
+```
+
+# Calculated statistics
+
+```{r stats}
+stats <- calculate_all_statistics(stocks, ma_window = 20)
+kable(stats, digits = 2, caption = "Close price statistics (20 day moving average)")
+```
+
+# Visualizations
+
+## Close price with moving average
+
+```{r plots, fig.width=7, fig.height=4}
+for (sym in names(stocks)) {
+  df <- stocks[[sym]]
+  plot(df$Date, df$Close, type = "l", col = "steelblue",
+       xlab = "Date", ylab = "Close price", main = paste(sym, "Close with 20 day MA"))
+  lines(df$Date, moving_average(df, 20), col = "red", lwd = 2)
+  legend("topleft", legend = c("Close", "20 day MA"),
+         col = c("steelblue", "red"), lty = 1, bty = "n")
+}
+```
+
+## Candlestick view (quantmod)
+
+```{r candles, fig.width=7, fig.height=4, warning=FALSE}
+for (sym in names(stocks)) {
+  df <- stocks[[sym]]
+  x <- xts::xts(df[, c("Open", "High", "Low", "Close", "Volume", "Adjusted")], order.by = df$Date)
+  chartSeries(tail(x, 90), name = sym, theme = chartTheme("white"), TA = "addSMA(20)")
+}
+```
+
+## Mean comparison
+
+```{r bar, fig.width=6, fig.height=4}
+barplot(stats$Mean, names.arg = stats$Symbol, col = "steelblue",
+        ylab = "Mean close price", main = "Mean close by stock")
+```
